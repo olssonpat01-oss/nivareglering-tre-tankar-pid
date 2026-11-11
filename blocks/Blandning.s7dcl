@@ -1,0 +1,49 @@
+﻿{
+    S7_EditorMode := "SCL";
+    S7_Optimized := "TRUE";
+    S7_Version := "0.1"
+}
+FUNCTION_BLOCK "Blandning"
+    VAR
+        { S7_MLC := "MLC_4Ec" }
+        V1 : Real;
+        { S7_MLC := "MLC_4Vq" }
+        V2 : Real;
+    END_VAR
+    VAR_TEMP
+        Q1 : Real;
+        Q2 : Real;
+        Inflode : Real;
+        Totalt : Real;
+    END_VAR
+    VAR CONSTANT
+        { S7_MLC := "MLC_3wa" }
+        Cykeltid : Real := 0.1;
+        { S7_MLC := "MLC_3Cd" }
+        FullTank : Real := 10100.0;
+        { S7_MLC := "MLC_4Hq" }
+        LiterPerSFyll : Real := 250.0;
+    END_VAR
+
+    { S7_Language := "SCL" }
+    NETWORK
+        // Anropas i OB30. Det som rinner in i T3 delas upp efter hur mycket T1 och T2 släpper ut just nu.
+        #Q1 := INT_TO_REAL("Flow_Meter_T1");
+        #Q2 := INT_TO_REAL("Flow_Meter_T2");
+        #Inflode := INT_TO_REAL("Fill_Valve_T3") / 27648.0 * #LiterPerSFyll;
+        IF #Q1 + #Q2 > 0.0 THEN
+            #V1 := #V1 + #Inflode * #Q1 / (#Q1 + #Q2) * #Cykeltid;
+            #V2 := #V2 + #Inflode * #Q2 / (#Q1 + #Q2) * #Cykeltid;
+        END_IF;
+        
+        // När T3 töms minskar båda delarna lika mycket: skala om så att summan = verklig volym i T3.
+        #Totalt := #V1 + #V2;
+        IF #Totalt > 1.0 THEN
+            "Mixture_Pct" := REAL_TO_INT(#V1 / #Totalt * 100.0);
+            #V1 := #V1 * (INT_TO_REAL("Level_Meter_T3") / 27648.0 * #FullTank) / #Totalt;
+            #V2 := #V2 * (INT_TO_REAL("Level_Meter_T3") / 27648.0 * #FullTank) / #Totalt;
+        ELSE
+            "Mixture_Pct" := 0;
+        END_IF;
+    END_NETWORK
+END_FUNCTION_BLOCK

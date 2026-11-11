@@ -1,0 +1,11 @@
+﻿MultiLingualTexts:
+  - id: MLC_4Ec
+    en-US: Liter i T3 som kommit från T1
+  - id: MLC_4Vq
+    en-US: Liter i T3 som kommit från T2
+  - id: MLC_3wa
+    en-US: OB30 körs var 100 ms
+  - id: MLC_3Cd
+    en-US: Liter vid 100 % nivå
+  - id: MLC_4Hq
+    en-US: Fyllventil helt öppen = 0,25 m3/s

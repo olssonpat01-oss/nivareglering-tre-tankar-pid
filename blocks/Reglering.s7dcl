@@ -1,0 +1,17 @@
+﻿{
+    S7_EditorMode := "SCL";
+    S7_Optimized := "TRUE";
+    S7_Version := "0.1"
+}
+ORGANIZATION_BLOCK "Reglering"
+    { S7_Language := "SCL" }
+    NETWORK
+        // En PI-regulator per övre tank. Aktiv, börvärde och nivå (0-100 %) kommer från "Tankar_DB".
+        // Utsignalen (PI_Tx.Ut) skickas till fyllventilen i FB Tankar, där High-spärren ligger.
+        "PI_T1"(Aktiv := "Tankar_DB".Aktiv[1], Bv := "Tankar_DB".Bv[1], Niva := "Tankar_DB".Niva[1], Kp := 30.0, Ti := 40.0);
+        "PI_T2"(Aktiv := "Tankar_DB".Aktiv[2], Bv := "Tankar_DB".Bv[2], Niva := "Tankar_DB".Niva[2], Kp := 30.0, Ti := 40.0);
+        
+        // T3 regleras inte. Här räknas hur stor del av vätskan i T3 som kommer från T1 (Mixture %).
+        "Blandning_DB"();
+    END_NETWORK
+END_ORGANIZATION_BLOCK

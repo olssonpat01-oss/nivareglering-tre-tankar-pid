@@ -1,0 +1,17 @@
+﻿MultiLingualTexts:
+  - id: MLC_3iR
+    en-US: TRUE = reglera, FALSE = nollställ
+  - id: MLC_qh
+    en-US: Börvärde 0-100 %
+  - id: MLC_58p
+    en-US: Ärvärde 0-100 %
+  - id: MLC_3UU
+    en-US: Förstärkning
+  - id: MLC_4ek
+    en-US: Integrationstid i sekunder
+  - id: MLC_ff
+    en-US: Fyllventil 0-100 %
+  - id: MLC_4KW
+    en-US: Integraldelen
+  - id: MLC_3wm
+    en-US: OB30 körs var 100 ms

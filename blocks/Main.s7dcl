@@ -1,0 +1,16 @@
+﻿{
+    S7_EditorMode := "SCL";
+    S7_Optimized := "TRUE";
+    S7_Version := "0.1"
+}
+ORGANIZATION_BLOCK "Main"
+    { S7_Language := "SCL" }
+    NETWORK
+        // Factory IO-kopplingen måste köras först.
+        "MHJ-PLC-Lab-Function-S71200"();
+        
+        // Drift, säkerhet, lampor, ventiler och volym för de tre tankarna.
+        // Nivåreglering och blandning ligger i OB30 (100 ms).
+        "Tankar_DB"();
+    END_NETWORK
+END_ORGANIZATION_BLOCK

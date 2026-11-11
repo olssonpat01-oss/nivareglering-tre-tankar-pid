@@ -1,0 +1,23 @@
+﻿MultiLingualTexts:
+  - id: MLC_Zt
+    en-US: 0 behöver återställning, 1 redo, 2 startvarning, 3 kör, 4 stoppar, 5 återställning, 9 nödstopp
+  - id: MLC_4YB
+    en-US: Steget förra cykeln (för stegtimern)
+  - id: MLC_3BB
+    en-US: Stegtid och 60 s vakthund
+  - id: MLC_3DC
+    en-US: Nivå 0-100 %
+  - id: MLC_gY
+    en-US: Börvärde 0-100 % för T1 och T2
+  - id: MLC_4ne
+    en-US: Tanken är igång
+  - id: MLC_4x2
+    en-US: Tanken har nått Low sedan den startade
+  - id: MLC_4uR
+    en-US: Nivån har sjunkit under Low under drift
+  - id: MLC_3jV
+    en-US: 27648 = 100 %
+  - id: MLC_3mP
+    en-US: Liter vid 100 % nivå
+  - id: MLC_Lk
+    en-US: Utflöde helt öppet 354,3 L/s delat med fyllning helt öppen 250 L/s

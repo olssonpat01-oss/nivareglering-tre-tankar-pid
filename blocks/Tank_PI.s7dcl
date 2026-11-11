@@ -1,0 +1,49 @@
+﻿{
+    S7_EditorMode := "SCL";
+    S7_Optimized := "TRUE";
+    S7_Version := "0.1"
+}
+FUNCTION_BLOCK "Tank_PI"
+    VAR_INPUT
+        { S7_MLC := "MLC_3iR" }
+        Aktiv : Bool;
+        { S7_MLC := "MLC_qh" }
+        Bv : Real;
+        { S7_MLC := "MLC_58p" }
+        Niva : Real;
+        { S7_MLC := "MLC_3UU" }
+        Kp : Real := 30.0;
+        { S7_MLC := "MLC_4ek" }
+        Ti : Real := 40.0;
+    END_VAR
+    VAR_OUTPUT
+        { S7_MLC := "MLC_ff" }
+        Ut : Real;
+    END_VAR
+    VAR
+        { S7_MLC := "MLC_4KW" }
+        Isum : Real;
+    END_VAR
+    VAR_TEMP
+        Fel : Real;
+    END_VAR
+    VAR CONSTANT
+        { S7_MLC := "MLC_3wm" }
+        Cykeltid : Real := 0.1;
+    END_VAR
+
+    { S7_Language := "SCL" }
+    NETWORK
+        // Anropas i OB30 (100 ms). Fel = börvärde - ärvärde.
+        IF NOT #Aktiv THEN
+            #Isum := 0.0;
+            #Ut := 0.0;
+            RETURN;
+        END_IF;
+        
+        #Fel := #Bv - #Niva;
+        // Integraldelen begränsas till 0-100 % så att den inte drar iväg (anti-windup).
+        #Isum := LIMIT(MN := 0.0, IN := #Isum + #Kp * #Fel * #Cykeltid / #Ti, MX := 100.0);
+        #Ut := LIMIT(MN := 0.0, IN := #Kp * #Fel + #Isum, MX := 100.0);
+    END_NETWORK
+END_FUNCTION_BLOCK

@@ -1,0 +1,205 @@
+﻿{
+    S7_EditorMode := "SCL";
+    S7_Optimized := "TRUE";
+    S7_Version := "0.1"
+}
+FUNCTION_BLOCK "Tankar"
+    VAR
+        { S7_MLC := "MLC_Zt" }
+        Steg : Int;
+        { S7_MLC := "MLC_4YB" }
+        Forra : Int;
+        { S7_MLC := "MLC_3BB" }
+        Tid : TON_TIME;
+        { S7_MLC := "MLC_3DC" }
+        Niva : Array[1..3] of Real;
+        { S7_MLC := "MLC_gY" }
+        Bv : Array[1..2] of Real;
+        { S7_MLC := "MLC_4ne" }
+        Aktiv : Array[1..3] of Bool;
+        { S7_MLC := "MLC_4x2" }
+        Fylld : Array[1..3] of Bool;
+        { S7_MLC := "MLC_4uR" }
+        LowLarm : Array[1..3] of Bool;
+    END_VAR
+    VAR_TEMP
+        Sakert : Bool;
+        T3TarEmot : Bool;
+    END_VAR
+    VAR CONSTANT
+        { S7_MLC := "MLC_3jV" }
+        Skala : Real := 276.48;
+        { S7_MLC := "MLC_3mP" }
+        FullTank : Real := 10100.0;
+        { S7_MLC := "MLC_Lk" }
+        UtTillIn : Real := 1.4172;
+    END_VAR
+
+    { S7_Language := "SCL" }
+    NETWORK
+        REGION Utgångar av
+            "Fill_Valve_T1" := 0; "Fill_Valve_T2" := 0; "Fill_Valve_T3" := 0;
+            "Discharge_Valve_T1" := 0; "Discharge_Valve_T2" := 0; "Discharge_Valve_T3" := 0;
+            "Start_Main_Light" := FALSE; "Stop_Main_Light" := FALSE; "Reset_Main_Light" := FALSE;
+            "Stack_Green" := FALSE; "Stack_Yellow" := FALSE; "Stack_Red" := FALSE;
+        END_REGION
+        
+        REGION Skalning
+            #Niva[1] := INT_TO_REAL("Level_Meter_T1") / #Skala;
+            #Niva[2] := INT_TO_REAL("Level_Meter_T2") / #Skala;
+            #Niva[3] := INT_TO_REAL("Level_Meter_T3") / #Skala;
+            #Bv[1] := INT_TO_REAL("PM_Inflow_T1") / #Skala;
+            #Bv[2] := INT_TO_REAL("PM_Inflow_T2") / #Skala;
+        END_REGION
+        
+        REGION Volym i liter
+            "Volume_T1_Liter" := REAL_TO_INT(#Niva[1] / 100.0 * #FullTank);
+            "Volume_T2_Liter" := REAL_TO_INT(#Niva[2] / 100.0 * #FullTank);
+            "Volume_T3_Liter" := REAL_TO_INT(#Niva[3] / 100.0 * #FullTank);
+        END_REGION
+        
+        REGION Säkerhet
+            // Nödstopp och dörr är brytande: TRUE = OK.
+            #Sakert := "Emergency_Stop_Main" AND "Emergency_Stop_1" AND "Emergency_Stop_2"
+                       AND "Emergency_Stop_3" AND "Safety_Door_0";
+            IF NOT "FACTORY_IO_Running" THEN
+                #Steg := 0;
+            ELSIF NOT #Sakert THEN
+                #Steg := 9;
+            END_IF;
+        END_REGION
+        
+        // Stegtid: börjar om vid varje stegbyte. Vakthund 60 s.
+        #Tid(IN := #Steg = #Forra, PT := T#60S);
+        #Forra := #Steg;
+        IF #Tid.Q AND (#Steg = 2 OR #Steg = 4 OR #Steg = 5) THEN
+            #Steg := 0;
+        END_IF;
+        
+        REGION Drift
+            CASE #Steg OF
+                0:  // Behöver återställning. Alla ventiler stängda.
+                    "Stack_Yellow" := TRUE;
+                    "Reset_Main_Light" := TRUE;
+                    // Klart när: Återställ trycks och allt är säkert
+                    IF "ResetButton_Main" AND #Sakert THEN
+                        #Steg := 5;
+                    END_IF;
+                    
+                5:  // Återställning: väntar tills knappen släppts
+                    "Stack_Yellow" := TRUE;
+                    // Klart när: Återställ släppt
+                    IF NOT "ResetButton_Main" THEN
+                        #Steg := 1;
+                    END_IF;
+                    
+                1:  // Redo. Väntar på Start.
+                    "Start_Main_Light" := TRUE;
+                    // Klart när: Start trycks
+                    IF "StartButton_Main" THEN
+                        #Steg := 2;
+                    END_IF;
+                    
+                2:  // Startvarning
+                    "Stack_Yellow" := TRUE;
+                    "Start_Main_Light" := TRUE;
+                    // Klart när: 3 s har gått
+                    IF #Tid.ET >= T#3S THEN
+                        #Steg := 3;
+                    END_IF;
+                    
+                3:  // Kör. Regleringen av T1 och T2 sker i OB30, ventilerna styrs nedan.
+                    "Stack_Green" := TRUE;
+                    "Stop_Main_Light" := TRUE;
+                    // Klart när: Stopp trycks (brytande)
+                    IF NOT "StopButton_Main" THEN
+                        #Steg := 4;
+                    END_IF;
+                    
+                4:  // Stoppar. Alla ventiler stängda.
+                    "Stack_Yellow" := TRUE;
+                    // Klart när: 2 s har gått och Stopp är släppt
+                    IF #Tid.ET >= T#2S AND "StopButton_Main" THEN
+                        #Steg := 1;
+                    END_IF;
+                    
+                9:  // Nödstopp. Alla ventiler stängda.
+                    "Stack_Red" := TRUE;
+                    // Klart när: alla nödstopp uppdragna och dörren stängd
+                    IF #Sakert THEN
+                        #Steg := 0;
+                    END_IF;
+                    
+                ELSE
+                    #Steg := 0;
+            END_CASE;
+        END_REGION
+        
+        REGION Auto och Man
+            // Auto: alla tankar är igång i steg 3.
+            // Man: varje tanks M_Start/M_Stop (brytande) startar och stoppar den.
+            IF #Steg <> 3 THEN
+                #Aktiv[1] := FALSE; #Aktiv[2] := FALSE; #Aktiv[3] := FALSE;
+            ELSIF "Auto" THEN
+                #Aktiv[1] := TRUE; #Aktiv[2] := TRUE; #Aktiv[3] := TRUE;
+            ELSE
+                #Aktiv[1] := ("M_Start_T1" OR #Aktiv[1]) AND "M_Stop_T1";
+                #Aktiv[2] := ("M_Start_T2" OR #Aktiv[2]) AND "M_Stop_T2";
+                #Aktiv[3] := ("M_Start_T3" OR #Aktiv[3]) AND "M_Stop_T3";
+            END_IF;
+            
+            "Manual_Light_T1" := "Man"; "Manual_Light_T2" := "Man"; "Manual_Light_T3" := "Man";
+            "M_Start_Light_T1" := "Man" AND #Aktiv[1];
+            "M_Start_Light_T2" := "Man" AND #Aktiv[2];
+            "M_Start_Light_T3" := "Man" AND #Aktiv[3];
+            "M_Stop_Light_T1" := "Man" AND NOT #Aktiv[1];
+            "M_Stop_Light_T2" := "Man" AND NOT #Aktiv[2];
+            "M_Stop_Light_T3" := "Man" AND NOT #Aktiv[3];
+        END_REGION
+        
+        REGION Ventiler T1 och T2 (nivåreglering)
+            // Fyllventil = regulatorns utsignal (OB30). High stänger alltid fyllningen.
+            IF #Aktiv[1] AND NOT "CapSensor_T1_High" THEN
+                "Fill_Valve_T1" := REAL_TO_INT("PI_T1".Ut * #Skala);
+            END_IF;
+            IF #Aktiv[2] AND NOT "CapSensor_T2_High" THEN
+                "Fill_Valve_T2" := REAL_TO_INT("PI_T2".Ut * #Skala);
+            END_IF;
+            
+            // T1 och T2 töms till T3, och bara när T3 kan ta emot (igång och inte full).
+            #T3TarEmot := #Aktiv[3] AND NOT "CapSensor_T3_High";
+            IF #Aktiv[1] AND #T3TarEmot THEN
+                "Discharge_Valve_T1" := "PM_Outflow_T1";
+            END_IF;
+            IF #Aktiv[2] AND #T3TarEmot THEN
+                "Discharge_Valve_T2" := "PM_Outflow_T2";
+            END_IF;
+        END_REGION
+        
+        REGION Ventiler T3 (blandningstank)
+            // Fyllning = summan av utflödet från T1 och T2 (flödesmätarna), max helt öppen ventil.
+            IF #T3TarEmot THEN
+                "Fill_Valve_T3" := REAL_TO_INT(LIMIT(MN := 0.0,
+                                                     IN := (INT_TO_REAL("Flow_Meter_T1") + INT_TO_REAL("Flow_Meter_T2")) * #UtTillIn,
+                                                     MX := 27648.0));
+            END_IF;
+            // Utflöde från ratten PM_Outflow T3.
+            IF #Aktiv[3] THEN
+                "Discharge_Valve_T3" := "PM_Outflow_T3";
+            END_IF;
+        END_REGION
+        
+        REGION Larm Low
+            // Larm om nivån sjunker under Low efter att tanken en gång nått Low.
+            #Fylld[1] := #Aktiv[1] AND (#Fylld[1] OR "CapSensor_T1_Low");
+            #Fylld[2] := #Aktiv[2] AND (#Fylld[2] OR "CapSensor_T2_Low");
+            #Fylld[3] := #Aktiv[3] AND (#Fylld[3] OR "CapSensor_T3_Low");
+            #LowLarm[1] := #Fylld[1] AND NOT "CapSensor_T1_Low";
+            #LowLarm[2] := #Fylld[2] AND NOT "CapSensor_T2_Low";
+            #LowLarm[3] := #Fylld[3] AND NOT "CapSensor_T3_Low";
+            IF #LowLarm[1] OR #LowLarm[2] OR #LowLarm[3] THEN
+                "Stack_Red" := TRUE;
+            END_IF;
+        END_REGION
+    END_NETWORK
+END_FUNCTION_BLOCK
